@@ -1,8 +1,39 @@
 import mongoose from 'mongoose';
 import Joi from 'joi';
+import sanitizeHtml from 'sanitize-html';
 import Post from '../../models/post.js';
 
 const { ObjectId } = mongoose.Types;
+
+const sanitizeOption = {
+  allowedTags: [
+    'h1',
+    'h2',
+    'b',
+    'i',
+    'u',
+    's',
+    'p',
+    'ul',
+    'li',
+    'blockquote',
+    'a',
+    'img',
+  ],
+  allowedAttributes: {
+    a: ['href', 'name', 'target'],
+    img: ['src'],
+    li: ['class'],
+    allowedSchema: ['data', 'http'],
+  },
+};
+
+const removeHtmlAndShorten = (body) => {
+  const filtered = sanitizeHtml(body, {
+    allowedTags: [],
+  });
+  return filtered.length < 200 ? filtered : `${filtered.slice(0, 200)}...`;
+};
 
 export const getPostById = async (ctx, next) => {
   const { id } = ctx.params;
@@ -48,7 +79,7 @@ export const write = async (ctx) => {
   const { title, body, tags } = ctx.request.body;
   const post = new Post({
     title,
-    body,
+    body: sanitizeHtml(body, sanitizeOption),
     tags,
     user: ctx.state.user,
   });
@@ -76,8 +107,6 @@ export const list = async (ctx) => {
     ...(tag ? { tags: tag } : {}),
   };
 
-  console.log(query);
-
   try {
     const posts = await Post.find(query)
       .sort({ _id: -1 })
@@ -86,11 +115,10 @@ export const list = async (ctx) => {
       .lean()
       .exec();
     const postCount = await Post.countDocuments(query).exec();
-    ctx.set('Last-Page', Math.ceil(postCount / 10));
+    ctx.set('last-page', Math.ceil(postCount / 10));
     ctx.body = posts.map((post) => ({
       ...post,
-      body:
-        post.body.length < 200 ? post.body : `${post.body.slice(0, 200)}...`,
+      body: removeHtmlAndShorten(post.body),
     }));
   } catch (error) {
     console.error('Exception ' + error);
@@ -129,8 +157,14 @@ export const update = async (ctx) => {
     return;
   }
 
+  const nextData = { ...ctx.request.body };
+
+  if (nextData.body) {
+    nextData.body = sanitizeHtml(nextData.body);
+  }
+
   try {
-    const post = await Post.findByIdAndUpdate(id, ctx.request.body, {
+    const post = await Post.findByIdAndUpdate(id, nextData, {
       new: true,
     }).exec();
 
@@ -148,8 +182,6 @@ export const update = async (ctx) => {
 
 export const checkOwnPost = (ctx, next) => {
   const { user, post } = ctx.state;
-
-  console.log(user, post);
 
   if (post.user._id.toString() !== user._id) {
     ctx.status = 403;

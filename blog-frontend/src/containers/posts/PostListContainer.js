@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import qs from 'qs';
 import { useDispatch, useSelector } from 'react-redux';
-import posts, { listPosts } from '../../modules/posts';
+import { listPosts } from '../../modules/posts';
 import PostList from '../../components/post/PostList';
 import { withRouter } from 'react-router-dom';
 
