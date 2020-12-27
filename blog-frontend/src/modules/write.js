@@ -7,11 +7,17 @@ import { takeLatest } from 'redux-saga/effects';
 
 const INITIALIZE = 'write/INITIALIZE';
 const CHANGE_FILED = 'write/CHANGE_FILED';
+const SET_ORIGINAL_POST = 'write/SET_ORIGINAL_POST';
 const [
   WRITE_POST,
   WRITE_POST_SUCCESS,
   WRITE_POST_FAILURE,
 ] = createRequestActionTypes('write/WRITE_POST');
+const [
+  UPDATE_POST,
+  UPDATE_POST_SUCCESS,
+  UPDATE_POST_FAILURE,
+] = createRequestActionTypes('write/UPDATE_POST');
 
 export const initialize = createAction(INITIALIZE);
 export const changeFiled = createAction(CHANGE_FILED, ({ key, value }) => ({
@@ -23,10 +29,23 @@ export const writePost = createAction(WRITE_POST, ({ title, body, tags }) => ({
   body,
   tags,
 }));
+export const updatePost = createAction(
+  UPDATE_POST,
+  ({ id, title, body, tags }) => ({
+    id,
+    title,
+    body,
+    tags,
+  }),
+);
+
+export const setOriginalPost = createAction(SET_ORIGINAL_POST, (post) => post);
 
 const writePostSaga = createRequestSaga(WRITE_POST, postsAPI.writePost);
+const updatePostSaga = createRequestSaga(UPDATE_POST, postsAPI.updatePost);
 export function* writeSaga() {
   yield takeLatest(WRITE_POST, writePostSaga);
+  yield takeLatest(UPDATE_POST, updatePostSaga);
 }
 
 const initialState = {
@@ -35,6 +54,7 @@ const initialState = {
   tags: [],
   post: null,
   postError: null,
+  originalPostId: null,
 };
 
 const write = handleActions(
@@ -56,6 +76,29 @@ const write = handleActions(
     [WRITE_POST_FAILURE]: (state, { payload: postError }) => ({
       ...state,
       postError,
+    }),
+    [UPDATE_POST_SUCCESS]: (state, { payload: post }) => {
+      console.log(post);
+
+      return {
+        ...state,
+        post,
+      };
+    },
+    [UPDATE_POST_FAILURE]: (state, { payload: postError }) => {
+      console.log(postError);
+
+      return {
+        ...state,
+        postError,
+      };
+    },
+    [SET_ORIGINAL_POST]: (state, { payload: post }) => ({
+      ...state,
+      title: post.title,
+      body: post.body,
+      tags: post.tags,
+      originalPostId: post._id,
     }),
   },
   initialState,
